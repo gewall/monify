@@ -54,7 +54,8 @@ export interface FinancialSuggestion {
 }
 
 /**
- * Calculates normalized monthly income from various streams (salary, freelance, payout, etc.)
+ * Calculates normalized monthly income from recurring streams (salary, freelance, payout, etc.)
+ * Note: 'one_time' non-recurring income is excluded from normalized monthly income calculations.
  */
 export function calculateTotalMonthlyIncome(incomes: IncomeItem[]): number {
   return incomes.reduce((total, item) => {
@@ -64,10 +65,11 @@ export function calculateTotalMonthlyIncome(incomes: IncomeItem[]): number {
         return total + val * 4.33;
       case "annual":
         return total + val / 12;
-      case "one_time":
       case "monthly":
-      default:
         return total + val;
+      case "one_time":
+      default:
+        return total;
     }
   }, 0);
 }

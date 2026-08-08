@@ -13,12 +13,13 @@ import {
 } from "../lib/financial/calculator";
 
 describe("Financial Calculator Engine", () => {
-  it("should calculate total monthly income from multiple streams correctly", () => {
+  it("should calculate total monthly income from multiple streams correctly and exclude one_time income", () => {
     const incomes: IncomeItem[] = [
       { title: "Primary Salary", amount: 4000, sourceType: "salary", frequency: "monthly" },
       { title: "Freelance Project", amount: 500, sourceType: "freelance", frequency: "monthly" },
       { title: "Weekly Payout", amount: 100, sourceType: "payout", frequency: "weekly" }, // ~433/mo
       { title: "Annual Bonus", amount: 1200, sourceType: "other", frequency: "annual" }, // 100/mo
+      { title: "One Time Gift", amount: 5000, sourceType: "other", frequency: "one_time" }, // 0/mo (excluded)
     ];
 
     const totalIncome = calculateTotalMonthlyIncome(incomes);
