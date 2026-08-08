@@ -13,7 +13,7 @@ if (!dbUrl) {
 const sql = neon(dbUrl);
 
 async function main() {
-  console.log("Pushing Drizzle tables to Neon PostgreSQL...");
+  console.log("Pushing Drizzle tables & indexes migration to Neon PostgreSQL...");
 
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -23,10 +23,13 @@ async function main() {
       email_verified TIMESTAMP,
       password_hash TEXT,
       image TEXT,
-      currency TEXT NOT NULL DEFAULT 'USD',
+      currency TEXT NOT NULL DEFAULT 'IDR',
+      balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00;`;
+  await sql`CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -44,6 +47,7 @@ async function main() {
       PRIMARY KEY (provider, provider_account_id)
     );
   `;
+  await sql`CREATE INDEX IF NOT EXISTS accounts_user_id_idx ON accounts(user_id);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -52,6 +56,7 @@ async function main() {
       expires TIMESTAMP NOT NULL
     );
   `;
+  await sql`CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS verification_tokens (
@@ -81,9 +86,13 @@ async function main() {
       source_type TEXT NOT NULL,
       frequency TEXT NOT NULL,
       date TIMESTAMP NOT NULL DEFAULT NOW(),
+      last_processed_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`ALTER TABLE income_sources ADD COLUMN IF NOT EXISTS last_processed_at TIMESTAMP;`;
+  await sql`CREATE INDEX IF NOT EXISTS income_sources_user_id_idx ON income_sources(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS income_sources_created_at_idx ON income_sources(created_at);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS recurring_expenditures (
@@ -94,9 +103,13 @@ async function main() {
       category TEXT NOT NULL,
       billing_cycle TEXT NOT NULL,
       due_day_of_month INTEGER DEFAULT 1,
+      last_processed_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`ALTER TABLE recurring_expenditures ADD COLUMN IF NOT EXISTS last_processed_at TIMESTAMP;`;
+  await sql`CREATE INDEX IF NOT EXISTS recurring_expenditures_user_id_idx ON recurring_expenditures(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS recurring_expenditures_created_at_idx ON recurring_expenditures(created_at);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS daily_expenditures (
@@ -110,6 +123,9 @@ async function main() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`CREATE INDEX IF NOT EXISTS daily_expenditures_user_id_idx ON daily_expenditures(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS daily_expenditures_created_at_idx ON daily_expenditures(created_at);`;
+  await sql`CREATE INDEX IF NOT EXISTS daily_expenditures_date_idx ON daily_expenditures(date);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS wishlist_items (
@@ -123,6 +139,8 @@ async function main() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`CREATE INDEX IF NOT EXISTS wishlist_items_user_id_idx ON wishlist_items(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS wishlist_items_created_at_idx ON wishlist_items(created_at);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS action_logs (
@@ -134,8 +152,11 @@ async function main() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `;
+  await sql`CREATE INDEX IF NOT EXISTS action_logs_user_id_idx ON action_logs(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS action_logs_created_at_idx ON action_logs(created_at);`;
+  await sql`CREATE INDEX IF NOT EXISTS action_logs_action_type_idx ON action_logs(action_type);`;
 
-  console.log("Successfully created/verified all database tables in Neon PostgreSQL!");
+  console.log("Successfully created/verified all database indexes in Neon PostgreSQL!");
 }
 
 main().catch((err) => {
