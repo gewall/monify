@@ -309,7 +309,7 @@ export async function updateUserBalance(requestedUserId: string, newBalance: num
     await db.insert(actionLogs).values({
       userId,
       actionType: "BALANCE_ADJUSTED",
-      description: `Manually updated account balance to Rp ${newBalance}.`,
+      description: `Diubah saldo rekening menjadi Rp ${newBalance}.`,
     });
 
     return { success: true, newBalance };
@@ -359,8 +359,8 @@ export async function addIncomeSource(
     await db.insert(actionLogs).values({
       userId,
       actionType: "INCOME_ADDED",
-      description: `Added income "${data.title}" (Rp ${data.amount} / ${data.frequency}).${
-        isOneTime ? " Added to balance immediately." : ""
+      description: `Ditambahkan penghasilan "${data.title}" (Rp ${data.amount} / ${data.frequency}).${
+        isOneTime ? " Ditambahkan ke saldo kas." : ""
       }`,
     });
 
@@ -377,6 +377,12 @@ export async function addIncomeSource(
 export async function deleteIncomeSource(requestedUserId: string, incomeId: string) {
   const userId = await resolveUserId(requestedUserId);
   try {
+    const [inc] = await db
+      .select({ title: incomeSources.title })
+      .from(incomeSources)
+      .where(and(eq(incomeSources.id, incomeId), eq(incomeSources.userId, userId)))
+      .limit(1);
+
     await db
       .delete(incomeSources)
       .where(and(eq(incomeSources.id, incomeId), eq(incomeSources.userId, userId)));
@@ -384,7 +390,7 @@ export async function deleteIncomeSource(requestedUserId: string, incomeId: stri
     await db.insert(actionLogs).values({
       userId,
       actionType: "INCOME_DELETED",
-      description: `Removed income source ID ${incomeId}.`,
+      description: `Dihapus sumber penghasilan "${inc?.title || "Penghasilan"}".`,
     });
 
     return { success: true };
@@ -425,7 +431,7 @@ export async function addRecurringExpenditure(
     await db.insert(actionLogs).values({
       userId,
       actionType: "RECURRING_EXPENSE_ADDED",
-      description: `Added recurring cost "${data.title}" (Rp ${data.amount} / ${data.billingCycle}).`,
+      description: `Ditambahkan pengeluaran tetap "${data.title}" (Rp ${data.amount} / ${data.billingCycle}).`,
     });
 
     return { success: true, data: inserted };
@@ -441,6 +447,12 @@ export async function addRecurringExpenditure(
 export async function deleteRecurringExpenditure(requestedUserId: string, expenseId: string) {
   const userId = await resolveUserId(requestedUserId);
   try {
+    const [rec] = await db
+      .select({ title: recurringExpenditures.title })
+      .from(recurringExpenditures)
+      .where(and(eq(recurringExpenditures.id, expenseId), eq(recurringExpenditures.userId, userId)))
+      .limit(1);
+
     await db
       .delete(recurringExpenditures)
       .where(and(eq(recurringExpenditures.id, expenseId), eq(recurringExpenditures.userId, userId)));
@@ -448,7 +460,7 @@ export async function deleteRecurringExpenditure(requestedUserId: string, expens
     await db.insert(actionLogs).values({
       userId,
       actionType: "RECURRING_EXPENSE_DELETED",
-      description: `Removed recurring expense ID ${expenseId}.`,
+      description: `Dihapus pengeluaran tetap "${rec?.title || "Pengeluaran Tetap"}".`,
     });
 
     return { success: true };
@@ -494,7 +506,7 @@ export async function addDailyExpenditure(
     await db.insert(actionLogs).values({
       userId,
       actionType: "DAILY_EXPENSE_ADDED",
-      description: `Logged daily expense "${data.title}" (-Rp ${data.amount}). Deducted from balance.`,
+      description: `Dicatat pengeluaran harian "${data.title}" (-Rp ${data.amount}). Saldo dipotong.`,
     });
 
     return { success: true, data: inserted };
@@ -512,7 +524,7 @@ export async function deleteDailyExpenditure(requestedUserId: string, expenseId:
   const userId = await resolveUserId(requestedUserId);
   try {
     const [exp] = await db
-      .select({ amount: dailyExpenditures.amount })
+      .select({ amount: dailyExpenditures.amount, title: dailyExpenditures.title })
       .from(dailyExpenditures)
       .where(and(eq(dailyExpenditures.id, expenseId), eq(dailyExpenditures.userId, userId)))
       .limit(1);
@@ -533,7 +545,7 @@ export async function deleteDailyExpenditure(requestedUserId: string, expenseId:
     await db.insert(actionLogs).values({
       userId,
       actionType: "DAILY_EXPENSE_DELETED",
-      description: `Deleted daily expense ID ${expenseId}. Refunded to balance.`,
+      description: `Dihapus pengeluaran harian "${exp?.title || "Pengeluaran Harian"}". Saldo dikembalikan.`,
     });
 
     return { success: true };
@@ -571,7 +583,7 @@ export async function addWishlistItem(
     await db.insert(actionLogs).values({
       userId,
       actionType: "WISHLIST_CREATED",
-      description: `Created wishlist target "${data.title}" (Rp ${data.targetPrice}).`,
+      description: `Dibuat target impian "${data.title}" (Rp ${data.targetPrice}).`,
     });
 
     return { success: true, data: inserted };
@@ -596,7 +608,7 @@ export async function updateWishlistStatus(requestedUserId: string, itemId: stri
     await db.insert(actionLogs).values({
       userId,
       actionType: "WISHLIST_UPDATED",
-      description: `Updated status of "${updated.title}" to ${status}.`,
+      description: `Diubah status target "${updated.title}" menjadi ${status}.`,
     });
 
     return { success: true };
@@ -612,9 +624,21 @@ export async function updateWishlistStatus(requestedUserId: string, itemId: stri
 export async function deleteWishlistItem(requestedUserId: string, itemId: string) {
   const userId = await resolveUserId(requestedUserId);
   try {
+    const [wish] = await db
+      .select({ title: wishlistItems.title })
+      .from(wishlistItems)
+      .where(and(eq(wishlistItems.id, itemId), eq(wishlistItems.userId, userId)))
+      .limit(1);
+
     await db
       .delete(wishlistItems)
       .where(and(eq(wishlistItems.id, itemId), eq(wishlistItems.userId, userId)));
+
+    await db.insert(actionLogs).values({
+      userId,
+      actionType: "WISHLIST_DELETED",
+      description: `Dihapus target impian "${wish?.title || "Target Impian"}".`,
+    });
 
     return { success: true };
   } catch (err) {
