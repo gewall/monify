@@ -74,6 +74,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
       }
+      // Ensure token.id is resolved against database by email if missing
+      if (!token.id && token.email) {
+        try {
+          const found = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.email, token.email.toLowerCase()))
+            .limit(1);
+          if (found.length > 0) {
+            token.id = found[0].id;
+          }
+        } catch (err) {
+          console.error("jwt callback user lookup error:", err);
+        }
+      }
       return token;
     },
     async session({ session, token }) {

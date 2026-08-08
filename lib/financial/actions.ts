@@ -10,6 +10,7 @@ import {
   actionLogs,
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { auth } from "@/auth";
 import {
   calculateFinancialSummary,
   generateFinancialSuggestions,
@@ -34,7 +35,7 @@ import {
 async function ensureUserExists(userId: string) {
   if (!userId) return;
   try {
-    const existing = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const existing = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
     if (existing.length === 0) {
       await db
         .insert(users)
@@ -51,11 +52,49 @@ async function ensureUserExists(userId: string) {
 }
 
 /**
+ * Resolves the authenticated user ID reliably from Server Session or database lookup.
+ * Fallback to requestedUserId or "demo-user".
+ */
+async function resolveUserId(requestedUserId?: string): Promise<string> {
+  try {
+    const session = await auth();
+    if (session?.user?.id) {
+      return session.user.id;
+    }
+    if (session?.user?.email) {
+      const email = session.user.email.toLowerCase().trim();
+      const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      if (existing.length > 0) {
+        return existing[0].id;
+      }
+      const [inserted] = await db
+        .insert(users)
+        .values({
+          email,
+          name: session.user.name || email.split("@")[0],
+          image: session.user.image,
+        })
+        .returning({ id: users.id });
+      return inserted.id;
+    }
+  } catch (err) {
+    console.error("resolveUserId session error:", err);
+  }
+
+  if (requestedUserId && requestedUserId !== "demo-user") {
+    await ensureUserExists(requestedUserId);
+    return requestedUserId;
+  }
+
+  await ensureUserExists("demo-user");
+  return "demo-user";
+}
+
+/**
  * Fetches all financial data for a user and calculates metrics & smart suggestions
  */
-export async function getUserFinancialOverview(userId: string) {
-  if (!userId) throw new Error("Unauthorized");
-  await ensureUserExists(userId);
+export async function getUserFinancialOverview(requestedUserId?: string) {
+  const userId = await resolveUserId(requestedUserId);
 
   try {
     const incomesData = await db
@@ -147,7 +186,7 @@ export async function getUserFinancialOverview(userId: string) {
  * Add a new income stream (salary, freelance, payout, etc.)
  */
 export async function addIncomeSource(
-  userId: string,
+  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -155,8 +194,7 @@ export async function addIncomeSource(
     frequency: string;
   }
 ) {
-  if (!userId) return { success: false, error: "Unauthorized" };
-  await ensureUserExists(userId);
+  const userId = await resolveUserId(requestedUserId);
 
   try {
     const [inserted] = await db
@@ -186,8 +224,8 @@ export async function addIncomeSource(
 /**
  * Delete income stream
  */
-export async function deleteIncomeSource(userId: string, incomeId: string) {
-  await ensureUserExists(userId);
+export async function deleteIncomeSource(requestedUserId: string, incomeId: string) {
+  const userId = await resolveUserId(requestedUserId);
   try {
     await db
       .delete(incomeSources)
@@ -210,7 +248,7 @@ export async function deleteIncomeSource(userId: string, incomeId: string) {
  * Add recurring fixed expenditure (Rent, bills, subscriptions, insurance)
  */
 export async function addRecurringExpenditure(
-  userId: string,
+  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -219,8 +257,7 @@ export async function addRecurringExpenditure(
     dueDayOfMonth?: number;
   }
 ) {
-  if (!userId) return { success: false, error: "Unauthorized" };
-  await ensureUserExists(userId);
+  const userId = await resolveUserId(requestedUserId);
 
   try {
     const [inserted] = await db
@@ -251,8 +288,8 @@ export async function addRecurringExpenditure(
 /**
  * Delete recurring fixed expenditure
  */
-export async function deleteRecurringExpenditure(userId: string, expenseId: string) {
-  await ensureUserExists(userId);
+export async function deleteRecurringExpenditure(requestedUserId: string, expenseId: string) {
+  const userId = await resolveUserId(requestedUserId);
   try {
     await db
       .delete(recurringExpenditures)
@@ -275,7 +312,7 @@ export async function deleteRecurringExpenditure(userId: string, expenseId: stri
  * Add daily expense
  */
 export async function addDailyExpenditure(
-  userId: string,
+  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -283,8 +320,7 @@ export async function addDailyExpenditure(
     notes?: string;
   }
 ) {
-  if (!userId) return { success: false, error: "Unauthorized" };
-  await ensureUserExists(userId);
+  const userId = await resolveUserId(requestedUserId);
 
   try {
     const [inserted] = await db
@@ -314,8 +350,8 @@ export async function addDailyExpenditure(
 /**
  * Delete daily expense
  */
-export async function deleteDailyExpenditure(userId: string, expenseId: string) {
-  await ensureUserExists(userId);
+export async function deleteDailyExpenditure(requestedUserId: string, expenseId: string) {
+  const userId = await resolveUserId(requestedUserId);
   try {
     await db
       .delete(dailyExpenditures)
@@ -338,15 +374,14 @@ export async function deleteDailyExpenditure(userId: string, expenseId: string) 
  * Add Wishlist Item
  */
 export async function addWishlistItem(
-  userId: string,
+  requestedUserId: string,
   data: {
     title: string;
     targetPrice: number;
     priority?: string;
   }
 ) {
-  if (!userId) return { success: false, error: "Unauthorized" };
-  await ensureUserExists(userId);
+  const userId = await resolveUserId(requestedUserId);
 
   try {
     const [inserted] = await db
@@ -376,8 +411,8 @@ export async function addWishlistItem(
 /**
  * Update Wishlist Status
  */
-export async function updateWishlistStatus(userId: string, itemId: string, status: string) {
-  await ensureUserExists(userId);
+export async function updateWishlistStatus(requestedUserId: string, itemId: string, status: string) {
+  const userId = await resolveUserId(requestedUserId);
   try {
     const [updated] = await db
       .update(wishlistItems)
@@ -401,8 +436,8 @@ export async function updateWishlistStatus(userId: string, itemId: string, statu
 /**
  * Delete Wishlist Item
  */
-export async function deleteWishlistItem(userId: string, itemId: string) {
-  await ensureUserExists(userId);
+export async function deleteWishlistItem(requestedUserId: string, itemId: string) {
+  const userId = await resolveUserId(requestedUserId);
   try {
     await db
       .delete(wishlistItems)
