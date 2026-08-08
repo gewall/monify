@@ -10,7 +10,8 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "db:push": "tsx lib/db/push-schema.ts"
+    "db:push": "tsx lib/db/push-schema.ts",
+    "db:fresh": "tsx lib/db/fresh.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
