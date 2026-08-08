@@ -9,7 +9,12 @@ import { validateWithValibot, LoginSchema } from "@/lib/validation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldError,
+} from "@/components/ui/field";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
 export default function LoginPage() {
@@ -55,7 +60,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md shadow-xl border-teal-500/20">
         <CardHeader className="text-center space-y-2">
           <CardTitle className="text-3xl font-extrabold">Selamat Datang di Monify</CardTitle>
           <CardDescription>Masuk untuk mengelola penghasilan, pengeluaran & tabungan Anda</CardDescription>
@@ -68,47 +73,45 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={formik.handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Alamat Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="email@contoh.com"
-                value={formik.values.email}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-              />
-              {formik.touched.email && formik.errors.email && (
-                <p className="text-xs text-destructive font-medium mt-1">{formik.errors.email}</p>
-              )}
-            </div>
+          <form onSubmit={formik.handleSubmit}>
+            <FieldGroup>
+              <Field invalid={Boolean(formik.touched.email && formik.errors.email)}>
+                <FieldLabel htmlFor="email">Alamat Email</FieldLabel>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="email@contoh.com"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FieldError>{formik.touched.email && formik.errors.email}</FieldError>
+              </Field>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-                  Lupa password?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={formik.values.password}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-              />
-              {formik.touched.password && formik.errors.password && (
-                <p className="text-xs text-destructive font-medium mt-1">{formik.errors.password}</p>
-              )}
-            </div>
+              <Field invalid={Boolean(formik.touched.password && formik.errors.password)}>
+                <div className="flex items-center justify-between mb-1">
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+                    Lupa password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FieldError>{formik.touched.password && formik.errors.password}</FieldError>
+              </Field>
 
-            <Button type="submit" className="w-full font-semibold" disabled={formik.isSubmitting}>
-              {formik.isSubmitting ? "Masuk..." : "Masuk dengan Email"}
-            </Button>
+              <Button type="submit" className="w-full font-semibold bg-teal-600 hover:bg-teal-700 text-white" disabled={formik.isSubmitting}>
+                {formik.isSubmitting ? "Masuk..." : "Masuk dengan Email"}
+              </Button>
+            </FieldGroup>
           </form>
 
           <div className="relative flex items-center justify-center py-2">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { getUserFinancialOverview, addRecurringExpenditure, deleteRecurringExpenditure } from "@/lib/financial/actions";
 import { formatRupiah } from "@/lib/currency";
 import { RecurringRecord } from "@/types/financial";
@@ -12,16 +11,13 @@ import { Card } from "@/components/ui/card";
 import { CreditCard } from "lucide-react";
 
 export default function RecurringPage() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id || "demo-user";
-
   const [recurring, setRecurring] = useState<RecurringRecord[]>([]);
   const [totalMonthly, setTotalMonthly] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchOverview = async (uid: string) => {
+  const fetchOverview = async () => {
     try {
-      const res = await getUserFinancialOverview(uid);
+      const res = await getUserFinancialOverview();
       setRecurring((res.recurring || []) as unknown as RecurringRecord[]);
       setTotalMonthly(res.summary?.totalMonthlyFixedCosts || 0);
     } catch (err) {
@@ -34,7 +30,7 @@ export default function RecurringPage() {
 
   useEffect(() => {
     let active = true;
-    getUserFinancialOverview(userId)
+    getUserFinancialOverview()
       .then((res) => {
         if (active) {
           setRecurring((res.recurring || []) as unknown as RecurringRecord[]);
@@ -52,7 +48,7 @@ export default function RecurringPage() {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, []);
 
   const handleAdd = async (data: {
     title: string;
@@ -61,20 +57,20 @@ export default function RecurringPage() {
     billingCycle: string;
     dueDayOfMonth?: number;
   }) => {
-    const res = await addRecurringExpenditure(userId, data);
+    const res = await addRecurringExpenditure(data);
     if (res.success) {
       toast.success(`Pengeluaran tetap "${data.title}" berhasil ditambahkan!`);
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menambahkan pengeluaran tetap.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    const res = await deleteRecurringExpenditure(userId, id);
+    const res = await deleteRecurringExpenditure(id);
     if (res.success) {
       toast.success("Pengeluaran tetap berhasil dihapus.");
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menghapus pengeluaran.");
     }

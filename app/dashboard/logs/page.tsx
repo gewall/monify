@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { getUserFinancialOverview } from "@/lib/financial/actions";
 import { ActionLogRecord } from "@/types/financial";
 import { AuditLogList } from "@/components/dashboard/audit-log-list";
@@ -9,15 +8,12 @@ import { Card } from "@/components/ui/card";
 import { ShieldCheck } from "lucide-react";
 
 export default function LogsPage() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id || "demo-user";
-
   const [logs, setLogs] = useState<ActionLogRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    getUserFinancialOverview(userId)
+    getUserFinancialOverview()
       .then((res) => {
         if (active) {
           setLogs((res.logs || []) as unknown as ActionLogRecord[]);
@@ -34,7 +30,7 @@ export default function LogsPage() {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, []);
 
   return (
     <div className="space-y-6">

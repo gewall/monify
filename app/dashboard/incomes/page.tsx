@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { getUserFinancialOverview, addIncomeSource, deleteIncomeSource } from "@/lib/financial/actions";
 import { formatRupiah } from "@/lib/currency";
 import { IncomeRecord } from "@/types/financial";
@@ -12,16 +11,13 @@ import { Card } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
 
 export default function IncomesPage() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id || "demo-user";
-
   const [incomes, setIncomes] = useState<IncomeRecord[]>([]);
   const [totalMonthly, setTotalMonthly] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchOverview = async (uid: string) => {
+  const fetchOverview = async () => {
     try {
-      const res = await getUserFinancialOverview(uid);
+      const res = await getUserFinancialOverview();
       setIncomes((res.incomes || []) as unknown as IncomeRecord[]);
       setTotalMonthly(res.summary?.totalMonthlyIncome || 0);
     } catch (err) {
@@ -34,7 +30,7 @@ export default function IncomesPage() {
 
   useEffect(() => {
     let active = true;
-    getUserFinancialOverview(userId)
+    getUserFinancialOverview()
       .then((res) => {
         if (active) {
           setIncomes((res.incomes || []) as unknown as IncomeRecord[]);
@@ -52,7 +48,7 @@ export default function IncomesPage() {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, []);
 
   const handleAdd = async (data: {
     title: string;
@@ -60,20 +56,20 @@ export default function IncomesPage() {
     sourceType: string;
     frequency: string;
   }) => {
-    const res = await addIncomeSource(userId, data);
+    const res = await addIncomeSource(data);
     if (res.success) {
       toast.success(`Penghasilan "${data.title}" berhasil ditambahkan!`);
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menambahkan penghasilan.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    const res = await deleteIncomeSource(userId, id);
+    const res = await deleteIncomeSource(id);
     if (res.success) {
       toast.success("Sumber penghasilan berhasil dihapus.");
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menghapus penghasilan.");
     }

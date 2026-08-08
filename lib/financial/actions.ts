@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import {
   calculateFinancialSummary,
   generateFinancialSuggestions,
@@ -30,65 +31,108 @@ import {
 } from "@/types/financial";
 
 /**
- * Ensures user record exists in users table to satisfy foreign keys
+ * Helper to check if an error is a Next.js redirect error so it can be rethrown cleanly.
  */
-async function ensureUserExists(userId: string) {
-  if (!userId) return;
-  try {
-    const existing = await db.select({ id: users.id, balance: users.balance }).from(users).where(eq(users.id, userId)).limit(1);
+function isNextRedirectError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "digest" in err &&
+    typeof (err as { digest: string }).digest === "string" &&
+    (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
+
+/**
+ * Resolves the authenticated user ID reliably from Auth.js session and PostgreSQL database.
+ * Auto-creates the user row if authenticated via OAuth/Credentials, ensuring smooth dashboard access.
+ * Redirects to /login only if user is completely unauthenticated.
+ */
+async function resolveUserId(requestedUserId?: string): Promise<string> {
+  const session = await auth();
+
+  // 1. Check by session email
+  if (session?.user?.email) {
+    const email = session.user.email.toLowerCase().trim();
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return existing[0].id;
+    }
+
+    // Auto-insert user row in database if logged in but row missing (e.g. OAuth or after db:fresh)
+    const userId = session.user.id || crypto.randomUUID();
+    const [inserted] = await db
+      .insert(users)
+      .values({
+        id: userId,
+        email,
+        name: session.user.name || email.split("@")[0],
+        image: session.user.image,
+        balance: "0.00",
+      })
+      .onConflictDoNothing()
+      .returning({ id: users.id });
+
+    return inserted?.id || userId;
+  }
+
+  // 2. Check by session user ID
+  if (session?.user?.id) {
+    const targetId = session.user.id;
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return existing[0].id;
+    }
+
+    const email = `${targetId}@monify.app`;
+    await db
+      .insert(users)
+      .values({
+        id: targetId,
+        email,
+        name: session.user.name || "Monify User",
+        image: session.user.image,
+        balance: "0.00",
+      })
+      .onConflictDoNothing();
+
+    return targetId;
+  }
+
+  // 3. Fallback for demo mode
+  if (requestedUserId === "demo-user") {
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, "demo-user"))
+      .limit(1);
+
     if (existing.length === 0) {
       await db
         .insert(users)
         .values({
-          id: userId,
-          email: `${userId}@monify.app`,
+          id: "demo-user",
+          email: "demo-user@monify.app",
           name: "Monify User",
           balance: "0.00",
         })
         .onConflictDoNothing();
     }
-  } catch (err) {
-    console.error("ensureUserExists Error:", err);
-  }
-}
-
-/**
- * Resolves the authenticated user ID reliably from Server Session or database lookup.
- */
-async function resolveUserId(requestedUserId?: string): Promise<string> {
-  try {
-    const session = await auth();
-    if (session?.user?.id) {
-      return session.user.id;
-    }
-    if (session?.user?.email) {
-      const email = session.user.email.toLowerCase().trim();
-      const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-      if (existing.length > 0) {
-        return existing[0].id;
-      }
-      const [inserted] = await db
-        .insert(users)
-        .values({
-          email,
-          name: session.user.name || email.split("@")[0],
-          image: session.user.image,
-          balance: "0.00",
-        })
-        .returning({ id: users.id });
-      return inserted.id;
-    }
-  } catch (err) {
-    console.error("resolveUserId session error:", err);
+    return "demo-user";
   }
 
-  if (requestedUserId && requestedUserId !== "demo-user") {
-    await ensureUserExists(requestedUserId);
-    return requestedUserId;
-  }
-
-  await ensureUserExists("demo-user");
-  return "demo-user";
+  // 4. Completely unauthenticated -> redirect to /login
+  redirect("/login");
 }
 
 /**
@@ -185,6 +229,7 @@ export async function processCronSchedules() {
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("processCronSchedules Error:", err);
     return { success: false, error: "Failed to process cron schedules." };
   }
@@ -289,6 +334,7 @@ export async function getUserFinancialOverview(requestedUserId?: string) {
       suggestions,
     };
   } catch (error) {
+    if (isNextRedirectError(error)) throw error;
     console.error("getUserFinancialOverview Error:", error);
     throw new Error("Failed to load financial data.");
   }
@@ -297,8 +343,8 @@ export async function getUserFinancialOverview(requestedUserId?: string) {
 /**
  * Manually update/adjust user account balance
  */
-export async function updateUserBalance(requestedUserId: string, newBalance: number) {
-  const userId = await resolveUserId(requestedUserId);
+export async function updateUserBalance(newBalance: number) {
+  const userId = await resolveUserId();
 
   try {
     await db
@@ -314,6 +360,7 @@ export async function updateUserBalance(requestedUserId: string, newBalance: num
 
     return { success: true, newBalance };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("updateUserBalance Error:", err);
     return { success: false, error: "Failed to update balance." };
   }
@@ -324,7 +371,6 @@ export async function updateUserBalance(requestedUserId: string, newBalance: num
  * If frequency is 'one_time', immediately add to user's balance.
  */
 export async function addIncomeSource(
-  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -332,7 +378,7 @@ export async function addIncomeSource(
     frequency: string;
   }
 ) {
-  const userId = await resolveUserId(requestedUserId);
+  const userId = await resolveUserId();
 
   try {
     const isOneTime = data.frequency === "one_time";
@@ -366,6 +412,7 @@ export async function addIncomeSource(
 
     return { success: true, data: inserted };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("addIncomeSource Error:", err);
     return { success: false, error: "Failed to add income source." };
   }
@@ -375,8 +422,8 @@ export async function addIncomeSource(
  * Delete income stream.
  * Deducts amount from user's balance if it was credited.
  */
-export async function deleteIncomeSource(requestedUserId: string, incomeId: string) {
-  const userId = await resolveUserId(requestedUserId);
+export async function deleteIncomeSource(incomeId: string) {
+  const userId = await resolveUserId();
   try {
     const [inc] = await db
       .select({
@@ -413,6 +460,7 @@ export async function deleteIncomeSource(requestedUserId: string, incomeId: stri
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("deleteIncomeSource Error:", err);
     return { success: false, error: "Failed to delete income." };
   }
@@ -422,7 +470,6 @@ export async function deleteIncomeSource(requestedUserId: string, incomeId: stri
  * Add recurring fixed expenditure
  */
 export async function addRecurringExpenditure(
-  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -431,7 +478,7 @@ export async function addRecurringExpenditure(
     dueDayOfMonth?: number;
   }
 ) {
-  const userId = await resolveUserId(requestedUserId);
+  const userId = await resolveUserId();
 
   try {
     const [inserted] = await db
@@ -454,22 +501,41 @@ export async function addRecurringExpenditure(
 
     return { success: true, data: inserted };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("addRecurringExpenditure Error:", err);
     return { success: false, error: "Failed to add recurring cost." };
   }
 }
 
 /**
- * Delete recurring fixed expenditure
+ * Delete recurring fixed expenditure.
+ * Refunds the amount back to user's balance if it was already deducted by cron.
  */
-export async function deleteRecurringExpenditure(requestedUserId: string, expenseId: string) {
-  const userId = await resolveUserId(requestedUserId);
+export async function deleteRecurringExpenditure(expenseId: string) {
+  const userId = await resolveUserId();
   try {
     const [rec] = await db
-      .select({ title: recurringExpenditures.title })
+      .select({
+        title: recurringExpenditures.title,
+        amount: recurringExpenditures.amount,
+        lastProcessedAt: recurringExpenditures.lastProcessedAt,
+      })
       .from(recurringExpenditures)
       .where(and(eq(recurringExpenditures.id, expenseId), eq(recurringExpenditures.userId, userId)))
       .limit(1);
+
+    if (rec) {
+      const amount = Number(rec.amount) || 0;
+      const wasDeducted = rec.lastProcessedAt !== null;
+
+      // Refund amount to balance if cron already deducted it
+      if (wasDeducted && amount > 0) {
+        const [userRow] = await db.select({ balance: users.balance }).from(users).where(eq(users.id, userId)).limit(1);
+        const curBal = Number(userRow?.balance || 0);
+        const newBal = curBal + amount;
+        await db.update(users).set({ balance: newBal.toString() }).where(eq(users.id, userId));
+      }
+    }
 
     await db
       .delete(recurringExpenditures)
@@ -478,11 +544,12 @@ export async function deleteRecurringExpenditure(requestedUserId: string, expens
     await db.insert(actionLogs).values({
       userId,
       actionType: "RECURRING_EXPENSE_DELETED",
-      description: `Deleted recurring expense "${rec?.title || "Recurring Expense"}".`,
+      description: `Deleted recurring expense "${rec?.title || "Recurring Expense"}". Balance refunded.`,
     });
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("deleteRecurringExpenditure Error:", err);
     return { success: false, error: "Failed to delete recurring expense." };
   }
@@ -493,7 +560,6 @@ export async function deleteRecurringExpenditure(requestedUserId: string, expens
  * Immediately deducts amount from user's balance.
  */
 export async function addDailyExpenditure(
-  requestedUserId: string,
   data: {
     title: string;
     amount: number;
@@ -501,7 +567,7 @@ export async function addDailyExpenditure(
     notes?: string;
   }
 ) {
-  const userId = await resolveUserId(requestedUserId);
+  const userId = await resolveUserId();
 
   try {
     const [inserted] = await db
@@ -529,6 +595,7 @@ export async function addDailyExpenditure(
 
     return { success: true, data: inserted };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("addDailyExpenditure Error:", err);
     return { success: false, error: "Failed to log daily expense." };
   }
@@ -538,8 +605,8 @@ export async function addDailyExpenditure(
  * Delete daily expense.
  * Refunds the amount back to user's balance.
  */
-export async function deleteDailyExpenditure(requestedUserId: string, expenseId: string) {
-  const userId = await resolveUserId(requestedUserId);
+export async function deleteDailyExpenditure(expenseId: string) {
+  const userId = await resolveUserId();
   try {
     const [exp] = await db
       .select({ amount: dailyExpenditures.amount, title: dailyExpenditures.title })
@@ -568,6 +635,7 @@ export async function deleteDailyExpenditure(requestedUserId: string, expenseId:
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("deleteDailyExpenditure Error:", err);
     return { success: false, error: "Failed to delete daily expense." };
   }
@@ -577,14 +645,13 @@ export async function deleteDailyExpenditure(requestedUserId: string, expenseId:
  * Add Wishlist Item
  */
 export async function addWishlistItem(
-  requestedUserId: string,
   data: {
     title: string;
     targetPrice: number;
     priority?: string;
   }
 ) {
-  const userId = await resolveUserId(requestedUserId);
+  const userId = await resolveUserId();
 
   try {
     const [inserted] = await db
@@ -606,6 +673,7 @@ export async function addWishlistItem(
 
     return { success: true, data: inserted };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("addWishlistItem Error:", err);
     return { success: false, error: "Failed to add wishlist item." };
   }
@@ -614,8 +682,8 @@ export async function addWishlistItem(
 /**
  * Update Wishlist Status
  */
-export async function updateWishlistStatus(requestedUserId: string, itemId: string, status: string) {
-  const userId = await resolveUserId(requestedUserId);
+export async function updateWishlistStatus(itemId: string, status: string) {
+  const userId = await resolveUserId();
   try {
     const [updated] = await db
       .update(wishlistItems)
@@ -631,6 +699,7 @@ export async function updateWishlistStatus(requestedUserId: string, itemId: stri
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("updateWishlistStatus Error:", err);
     return { success: false, error: "Failed to update wishlist status." };
   }
@@ -639,8 +708,8 @@ export async function updateWishlistStatus(requestedUserId: string, itemId: stri
 /**
  * Delete Wishlist Item
  */
-export async function deleteWishlistItem(requestedUserId: string, itemId: string) {
-  const userId = await resolveUserId(requestedUserId);
+export async function deleteWishlistItem(itemId: string) {
+  const userId = await resolveUserId();
   try {
     const [wish] = await db
       .select({ title: wishlistItems.title })
@@ -660,6 +729,7 @@ export async function deleteWishlistItem(requestedUserId: string, itemId: string
 
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) throw err;
     console.error("deleteWishlistItem Error:", err);
     return { success: false, error: "Failed to delete wishlist item." };
   }

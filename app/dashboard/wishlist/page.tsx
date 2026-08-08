@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { getUserFinancialOverview, addWishlistItem, updateWishlistStatus, deleteWishlistItem } from "@/lib/financial/actions";
 import { formatRupiah } from "@/lib/currency";
 import { WishlistRecord } from "@/types/financial";
@@ -12,16 +11,13 @@ import { Card } from "@/components/ui/card";
 import { Target } from "lucide-react";
 
 export default function WishlistPage() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id || "demo-user";
-
   const [wishlist, setWishlist] = useState<WishlistRecord[]>([]);
   const [netSavings, setNetSavings] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchOverview = async (uid: string) => {
+  const fetchOverview = async () => {
     try {
-      const res = await getUserFinancialOverview(uid);
+      const res = await getUserFinancialOverview();
       setWishlist((res.wishlist || []) as unknown as WishlistRecord[]);
       setNetSavings(res.summary?.netMonthlySavings || 0);
     } catch (err) {
@@ -34,7 +30,7 @@ export default function WishlistPage() {
 
   useEffect(() => {
     let active = true;
-    getUserFinancialOverview(userId)
+    getUserFinancialOverview()
       .then((res) => {
         if (active) {
           setWishlist((res.wishlist || []) as unknown as WishlistRecord[]);
@@ -52,17 +48,17 @@ export default function WishlistPage() {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, []);
 
   const handleAdd = async (data: {
     title: string;
     targetPrice: number;
     priority: string;
   }) => {
-    const res = await addWishlistItem(userId, data);
+    const res = await addWishlistItem(data);
     if (res.success) {
       toast.success(`Target impian "${data.title}" berhasil dibuat!`);
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal membuat target impian.");
     }
@@ -70,24 +66,24 @@ export default function WishlistPage() {
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === "saving" ? "achieved" : "saving";
-    const res = await updateWishlistStatus(userId, id, nextStatus);
+    const res = await updateWishlistStatus(id, nextStatus);
     if (res.success) {
       toast.success(
         nextStatus === "achieved"
           ? "Selamat! Target impian berhasil dicapai 🎉"
           : "Status target impian dibuka kembali."
       );
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal memperbarui status.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    const res = await deleteWishlistItem(userId, id);
+    const res = await deleteWishlistItem(id);
     if (res.success) {
       toast.success("Target impian berhasil dihapus.");
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menghapus target.");
     }

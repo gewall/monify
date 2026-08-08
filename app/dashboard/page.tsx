@@ -35,8 +35,7 @@ import {
 } from "lucide-react";
 
 export default function OverviewPage() {
-  const { data: session, status: authStatus } = useSession();
-  const userId = session?.user?.id || "demo-user";
+  const { status: authStatus } = useSession();
 
   const [data, setData] = useState<FinancialOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,9 +44,9 @@ export default function OverviewPage() {
   const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [balanceInput, setBalanceInput] = useState("");
 
-  const loadOverview = async (uid: string) => {
+  const loadOverview = async () => {
     try {
-      const res = await getUserFinancialOverview(uid);
+      const res = await getUserFinancialOverview();
       setData(res as unknown as FinancialOverviewData);
     } catch (err) {
       console.error(err);
@@ -60,7 +59,7 @@ export default function OverviewPage() {
     let active = true;
 
     if (authStatus !== "loading") {
-      getUserFinancialOverview(userId)
+      getUserFinancialOverview()
         .then((res) => {
           if (active) {
             setData(res as unknown as FinancialOverviewData);
@@ -78,7 +77,7 @@ export default function OverviewPage() {
     return () => {
       active = false;
     };
-  }, [userId, authStatus]);
+  }, [authStatus]);
 
   const handleSaveBalance = async () => {
     const num = Number(balanceInput);
@@ -87,11 +86,11 @@ export default function OverviewPage() {
       return;
     }
 
-    const res = await updateUserBalance(userId, num);
+    const res = await updateUserBalance(num);
     if (res.success) {
       toast.success("Saldo berhasil diperbarui!");
       setIsEditingBalance(false);
-      await loadOverview(userId);
+      await loadOverview();
     } else {
       toast.error(res.error || "Gagal memperbarui saldo.");
     }

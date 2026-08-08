@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { getUserFinancialOverview, addDailyExpenditure, deleteDailyExpenditure } from "@/lib/financial/actions";
 import { formatRupiah } from "@/lib/currency";
 import { DailyRecord } from "@/types/financial";
@@ -12,16 +11,13 @@ import { Card } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 
 export default function DailyPage() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id || "demo-user";
-
   const [daily, setDaily] = useState<DailyRecord[]>([]);
   const [totalDaily, setTotalDaily] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchOverview = async (uid: string) => {
+  const fetchOverview = async () => {
     try {
-      const res = await getUserFinancialOverview(uid);
+      const res = await getUserFinancialOverview();
       setDaily((res.daily || []) as unknown as DailyRecord[]);
       setTotalDaily(res.summary?.totalDailyExpenses || 0);
     } catch (err) {
@@ -34,7 +30,7 @@ export default function DailyPage() {
 
   useEffect(() => {
     let active = true;
-    getUserFinancialOverview(userId)
+    getUserFinancialOverview()
       .then((res) => {
         if (active) {
           setDaily((res.daily || []) as unknown as DailyRecord[]);
@@ -52,7 +48,7 @@ export default function DailyPage() {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, []);
 
   const handleAdd = async (data: {
     title: string;
@@ -60,20 +56,20 @@ export default function DailyPage() {
     category: string;
     notes?: string;
   }) => {
-    const res = await addDailyExpenditure(userId, data);
+    const res = await addDailyExpenditure(data);
     if (res.success) {
       toast.success(`Pengeluaran harian "${data.title}" berhasil dicatat!`);
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal mencatat pengeluaran.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    const res = await deleteDailyExpenditure(userId, id);
+    const res = await deleteDailyExpenditure(id);
     if (res.success) {
       toast.success("Pengeluaran harian berhasil dihapus.");
-      await fetchOverview(userId);
+      await fetchOverview();
     } else {
       toast.error(res.error || "Gagal menghapus pengeluaran.");
     }

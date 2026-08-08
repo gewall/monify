@@ -8,7 +8,12 @@ import { validateWithValibot, RegisterSchema } from "@/lib/validation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldError,
+} from "@/components/ui/field";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
 export default function RegisterPage() {
@@ -46,7 +51,7 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md shadow-xl border-teal-500/20">
         <CardHeader className="text-center space-y-2">
           <CardTitle className="text-3xl font-extrabold">Buat Akun Monify</CardTitle>
           <CardDescription>Mulai kelola penghasilan, pengeluaran & target tabungan Anda</CardDescription>
@@ -65,58 +70,54 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={formik.handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nama Lengkap</Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="John Doe"
-                value={formik.values.name}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-              />
-              {formik.touched.name && formik.errors.name && (
-                <p className="text-xs text-destructive font-medium mt-1">{formik.errors.name}</p>
-              )}
-            </div>
+          <form onSubmit={formik.handleSubmit}>
+            <FieldGroup>
+              <Field invalid={Boolean(formik.touched.name && formik.errors.name)}>
+                <FieldLabel htmlFor="name">Nama Lengkap</FieldLabel>
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FieldError>{formik.touched.name && formik.errors.name}</FieldError>
+              </Field>
 
-            <div>
-              <Label htmlFor="email">Alamat Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="email@contoh.com"
-                value={formik.values.email}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-              />
-              {formik.touched.email && formik.errors.email && (
-                <p className="text-xs text-destructive font-medium mt-1">{formik.errors.email}</p>
-              )}
-            </div>
+              <Field invalid={Boolean(formik.touched.email && formik.errors.email)}>
+                <FieldLabel htmlFor="email">Alamat Email</FieldLabel>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="email@contoh.com"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FieldError>{formik.touched.email && formik.errors.email}</FieldError>
+              </Field>
 
-            <div>
-              <Label htmlFor="password">Password (minimal 6 karakter)</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={formik.values.password}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-              />
-              {formik.touched.password && formik.errors.password && (
-                <p className="text-xs text-destructive font-medium mt-1">{formik.errors.password}</p>
-              )}
-            </div>
+              <Field invalid={Boolean(formik.touched.password && formik.errors.password)}>
+                <FieldLabel htmlFor="password">Password (minimal 6 karakter)</FieldLabel>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FieldError>{formik.touched.password && formik.errors.password}</FieldError>
+              </Field>
 
-            <Button type="submit" className="w-full font-semibold" disabled={formik.isSubmitting}>
-              {formik.isSubmitting ? "Mendaftar..." : "Daftar Akun"}
-            </Button>
+              <Button type="submit" className="w-full font-semibold bg-teal-600 hover:bg-teal-700 text-white" disabled={formik.isSubmitting}>
+                {formik.isSubmitting ? "Mendaftar..." : "Daftar Akun"}
+              </Button>
+            </FieldGroup>
           </form>
         </CardContent>
 

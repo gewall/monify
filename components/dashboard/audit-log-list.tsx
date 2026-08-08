@@ -4,7 +4,13 @@ import { useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ActionLogRecord } from "@/types/financial";
 import { Filter, Calendar, Search, RotateCcw } from "lucide-react";
@@ -108,14 +114,18 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
             </label>
             <Select
               value={selectedActionType}
-              onChange={(e) => setSelectedActionType(e.target.value)}
-              className="h-8 text-xs bg-background"
+              onValueChange={(value) => setSelectedActionType(value)}
             >
-              {actionTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type === "ALL" ? "All Action Types" : type}
-                </option>
-              ))}
+              <SelectTrigger className="h-8 text-xs bg-background">
+                <SelectValue placeholder="All Action Types" />
+              </SelectTrigger>
+              <SelectContent>
+                {actionTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type === "ALL" ? "All Action Types" : type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
 
