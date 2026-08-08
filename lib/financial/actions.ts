@@ -372,16 +372,34 @@ export async function addIncomeSource(
 }
 
 /**
- * Delete income stream
+ * Delete income stream.
+ * Deducts amount from user's balance if it was credited.
  */
 export async function deleteIncomeSource(requestedUserId: string, incomeId: string) {
   const userId = await resolveUserId(requestedUserId);
   try {
     const [inc] = await db
-      .select({ title: incomeSources.title })
+      .select({
+        title: incomeSources.title,
+        amount: incomeSources.amount,
+        frequency: incomeSources.frequency,
+        lastProcessedAt: incomeSources.lastProcessedAt,
+      })
       .from(incomeSources)
       .where(and(eq(incomeSources.id, incomeId), eq(incomeSources.userId, userId)))
       .limit(1);
+
+    if (inc) {
+      const amount = Number(inc.amount) || 0;
+      const wasCredited = inc.frequency === "one_time" || inc.lastProcessedAt !== null;
+
+      if (wasCredited && amount > 0) {
+        const [userRow] = await db.select({ balance: users.balance }).from(users).where(eq(users.id, userId)).limit(1);
+        const curBal = Number(userRow?.balance || 0);
+        const newBal = Math.max(0, curBal - amount);
+        await db.update(users).set({ balance: newBal.toString() }).where(eq(users.id, userId));
+      }
+    }
 
     await db
       .delete(incomeSources)
@@ -390,7 +408,7 @@ export async function deleteIncomeSource(requestedUserId: string, incomeId: stri
     await db.insert(actionLogs).values({
       userId,
       actionType: "INCOME_DELETED",
-      description: `Deleted income source "${inc?.title || "Income Source"}".`,
+      description: `Deleted income source "${inc?.title || "Income Source"}". Balance deducted.`,
     });
 
     return { success: true };
