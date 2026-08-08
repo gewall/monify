@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { getUserFinancialOverview } from "@/lib/financial/actions";
+import { getUserFinancialOverview, processCronSchedules } from "@/lib/financial/actions";
 import { sendFinancialDigestEmail } from "@/lib/email/transporter";
 
 export async function GET(req: NextRequest) {
@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // 1. Process all scheduled income additions & fixed cost deductions
+    await processCronSchedules();
+
+    // 2. Send email digests to all registered users
     const allUsers = await db.select({ id: users.id, email: users.email }).from(users);
 
     let sentCount = 0;
@@ -31,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Dispatched weekly digests to ${sentCount} user(s).`,
+      message: `Processed schedules & dispatched weekly digests to ${sentCount} user(s).`,
     });
   } catch (error) {
     console.error("Cron Error:", error);

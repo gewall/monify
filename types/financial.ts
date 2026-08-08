@@ -17,6 +17,7 @@ export interface IncomeRecord {
   sourceType: IncomeSourceType;
   frequency: IncomeFrequency;
   date: Date;
+  lastProcessedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -28,6 +29,7 @@ export interface RecurringRecord {
   category: RecurringCategory;
   billingCycle: BillingCycle;
   dueDayOfMonth?: number | null;
+  lastProcessedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -63,6 +65,7 @@ export interface ActionLogRecord {
 }
 
 export interface FinancialOverviewData {
+  userBalance: number;
   incomes: IncomeRecord[];
   recurring: RecurringRecord[];
   daily: DailyRecord[];

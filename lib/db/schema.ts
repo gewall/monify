@@ -15,7 +15,8 @@ export const users = pgTable("users", {
   emailVerified: timestamp("email_verified", { mode: "date" }),
   passwordHash: text("password_hash"),
   image: text("image"),
-  currency: text("currency").default("USD").notNull(),
+  currency: text("currency").default("IDR").notNull(),
+  balance: numeric("balance", { precision: 12, scale: 2 }).default("0.00").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
@@ -88,6 +89,7 @@ export const incomeSources = pgTable("income_sources", {
   sourceType: text("source_type").notNull(), // salary | freelance | payout | investment | side_hustle | other
   frequency: text("frequency").notNull(), // monthly | one_time | weekly | annual
   date: timestamp("date", { mode: "date" }).defaultNow().notNull(),
+  lastProcessedAt: timestamp("last_processed_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
@@ -102,6 +104,7 @@ export const recurringExpenditures = pgTable("recurring_expenditures", {
   category: text("category").notNull(), // rent | bills | subscriptions | insurance | loan | other
   billingCycle: text("billing_cycle").notNull(), // monthly | quarterly | annual
   dueDayOfMonth: integer("due_day_of_month").default(1),
+  lastProcessedAt: timestamp("last_processed_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 

@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { getUserFinancialOverview } from "@/lib/financial/actions";
+import { getUserFinancialOverview, updateUserBalance } from "@/lib/financial/actions";
 import { formatRupiah } from "@/lib/currency";
 import { FinancialOverviewData } from "@/types/financial";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import {
@@ -19,6 +21,7 @@ import {
   Cell,
 } from "recharts";
 import {
+  Wallet,
   Sparkles,
   AlertTriangle,
   Info,
@@ -26,6 +29,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Plus,
+  Edit2,
+  Check,
+  X,
 } from "lucide-react";
 
 export default function OverviewPage() {
@@ -34,6 +40,21 @@ export default function OverviewPage() {
 
   const [data, setData] = useState<FinancialOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Edit balance state
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [balanceInput, setBalanceInput] = useState("");
+
+  const loadOverview = async (uid: string) => {
+    try {
+      const res = await getUserFinancialOverview(uid);
+      setData(res as unknown as FinancialOverviewData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -59,6 +80,23 @@ export default function OverviewPage() {
     };
   }, [userId, authStatus]);
 
+  const handleSaveBalance = async () => {
+    const num = Number(balanceInput);
+    if (isNaN(num) || num < 0) {
+      toast.error("Masukkan nominal saldo yang valid.");
+      return;
+    }
+
+    const res = await updateUserBalance(userId, num);
+    if (res.success) {
+      toast.success("Saldo berhasil diperbarui!");
+      setIsEditingBalance(false);
+      await loadOverview(userId);
+    } else {
+      toast.error(res.error || "Gagal memperbarui saldo.");
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -70,6 +108,7 @@ export default function OverviewPage() {
     );
   }
 
+  const userBalance = data?.userBalance ?? 0;
   const summary = data?.summary || {
     totalMonthlyIncome: 0,
     totalMonthlyFixedCosts: 0,
@@ -82,7 +121,8 @@ export default function OverviewPage() {
   };
 
   const cashFlowChartData = [
-    { name: "Penghasilan", amount: summary.totalMonthlyIncome, fill: "#0d9488" },
+    { name: "Saldo Saat Ini", amount: userBalance, fill: "#0d9488" },
+    { name: "Penghasilan", amount: summary.totalMonthlyIncome, fill: "#10b981" },
     { name: "Biaya Tetap", amount: summary.totalMonthlyFixedCosts, fill: "#e11d48" },
     { name: "Harian", amount: summary.totalDailyExpenses, fill: "#f59e0b" },
     { name: "Tabungan", amount: Math.max(0, summary.netMonthlySavings), fill: "#3b82f6" },
@@ -95,7 +135,7 @@ export default function OverviewPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">Ringkasan Kesehatan Keuangan</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Analisis arus kas real-time dan rekomendasi keuangan pintar.
+            Saldo kas real-time, jadwal income/biaya otomatis & rekomendasi pintar.
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -112,12 +152,63 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Top Metrics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Metrics Cards Grid Including Saldo Rekening */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* User Balance Card with Inline Edit */}
+        <Card className="p-4 flex flex-col justify-between space-y-2 border-teal-500/30 bg-teal-500/5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+              Saldo Rekening
+            </span>
+            <div className="p-1 rounded-md bg-teal-500/10 text-teal-500">
+              <Wallet className="h-4 w-4" />
+            </div>
+          </div>
+
+          {isEditingBalance ? (
+            <div className="space-y-2 pt-1">
+              <Input
+                type="number"
+                value={balanceInput}
+                onChange={(e) => setBalanceInput(e.target.value)}
+                placeholder="Nominal Saldo (Rp)"
+                className="h-8 text-xs font-bold"
+              />
+              <div className="flex items-center space-x-1">
+                <Button size="xs" onClick={handleSaveBalance} className="h-7 text-xs px-2 bg-teal-600 hover:bg-teal-700">
+                  <Check className="h-3 w-3 mr-1" /> Simpan
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => setIsEditingBalance(false)} className="h-7 text-xs px-2">
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-baseline space-x-2">
+                <p className="text-xl font-black text-teal-600 dark:text-teal-400">
+                  {formatRupiah(userBalance)}
+                </p>
+                <button
+                  onClick={() => {
+                    setBalanceInput(userBalance.toString());
+                    setIsEditingBalance(true);
+                  }}
+                  className="text-muted-foreground hover:text-teal-500 transition-colors"
+                  title="Edit Saldo"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Diproses otomatis via Cron</p>
+            </div>
+          )}
+        </Card>
+
         <SummaryCard
-          title="Total Penghasilan Bulanan"
+          title="Penghasilan Bulanan"
           amount={summary.totalMonthlyIncome}
-          subtitle={`Dari ${data?.incomes?.length || 0} sumber penghasilan`}
+          subtitle={`Dari ${data?.incomes?.length || 0} sumber`}
           href="/dashboard/incomes"
           icon={
             <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500">
@@ -129,7 +220,7 @@ export default function OverviewPage() {
         <SummaryCard
           title="Biaya Tetap Bulanan"
           amount={summary.totalMonthlyFixedCosts}
-          subtitle={`${summary.fixedCostRatioPercentage}% dari total penghasilan`}
+          subtitle={`${summary.fixedCostRatioPercentage}% dari penghasilan`}
           href="/dashboard/recurring"
           icon={
             <div className="p-1 rounded-md bg-rose-500/10 text-rose-500">
@@ -141,7 +232,7 @@ export default function OverviewPage() {
         <SummaryCard
           title="Pengeluaran Harian"
           amount={summary.totalDailyExpenses}
-          subtitle="Total pengeluaran harian dicatat"
+          subtitle="Mengurangi saldo kas"
           href="/dashboard/daily"
           icon={
             <div className="p-1 rounded-md bg-amber-500/10 text-amber-500">
@@ -151,7 +242,7 @@ export default function OverviewPage() {
         />
 
         <SummaryCard
-          title="Tabungan Bersih Bulanan"
+          title="Tabungan Bersih"
           amount={summary.netMonthlySavings}
           subtitle={`${summary.savingsRatePercentage}% Savings Rate`}
           href="/dashboard/wishlist"
@@ -169,7 +260,7 @@ export default function OverviewPage() {
         {/* Cash Flow Bar Chart */}
         <Card className="lg:col-span-2 p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold tracking-tight">Analisis Arus Kas Bulanan</h2>
+            <h2 className="text-base font-bold tracking-tight">Analisis Saldo & Arus Kas</h2>
             <span className="text-xs text-muted-foreground">Indonesian Rupiah (Rp)</span>
           </div>
           <div className="h-64 w-full">
