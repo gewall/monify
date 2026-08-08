@@ -309,7 +309,7 @@ export async function updateUserBalance(requestedUserId: string, newBalance: num
     await db.insert(actionLogs).values({
       userId,
       actionType: "BALANCE_ADJUSTED",
-      description: `Diubah saldo rekening menjadi Rp ${newBalance}.`,
+      description: `Updated account balance to Rp ${newBalance}.`,
     });
 
     return { success: true, newBalance };
@@ -359,8 +359,8 @@ export async function addIncomeSource(
     await db.insert(actionLogs).values({
       userId,
       actionType: "INCOME_ADDED",
-      description: `Ditambahkan penghasilan "${data.title}" (Rp ${data.amount} / ${data.frequency}).${
-        isOneTime ? " Ditambahkan ke saldo kas." : ""
+      description: `Added income source "${data.title}" (Rp ${data.amount} / ${data.frequency}).${
+        isOneTime ? " Added to account balance." : ""
       }`,
     });
 
@@ -390,7 +390,7 @@ export async function deleteIncomeSource(requestedUserId: string, incomeId: stri
     await db.insert(actionLogs).values({
       userId,
       actionType: "INCOME_DELETED",
-      description: `Dihapus sumber penghasilan "${inc?.title || "Penghasilan"}".`,
+      description: `Deleted income source "${inc?.title || "Income Source"}".`,
     });
 
     return { success: true };
@@ -431,7 +431,7 @@ export async function addRecurringExpenditure(
     await db.insert(actionLogs).values({
       userId,
       actionType: "RECURRING_EXPENSE_ADDED",
-      description: `Ditambahkan pengeluaran tetap "${data.title}" (Rp ${data.amount} / ${data.billingCycle}).`,
+      description: `Added recurring expense "${data.title}" (Rp ${data.amount} / ${data.billingCycle}).`,
     });
 
     return { success: true, data: inserted };
@@ -460,7 +460,7 @@ export async function deleteRecurringExpenditure(requestedUserId: string, expens
     await db.insert(actionLogs).values({
       userId,
       actionType: "RECURRING_EXPENSE_DELETED",
-      description: `Dihapus pengeluaran tetap "${rec?.title || "Pengeluaran Tetap"}".`,
+      description: `Deleted recurring expense "${rec?.title || "Recurring Expense"}".`,
     });
 
     return { success: true };
@@ -506,7 +506,7 @@ export async function addDailyExpenditure(
     await db.insert(actionLogs).values({
       userId,
       actionType: "DAILY_EXPENSE_ADDED",
-      description: `Dicatat pengeluaran harian "${data.title}" (-Rp ${data.amount}). Saldo dipotong.`,
+      description: `Logged daily expense "${data.title}" (-Rp ${data.amount}). Balance deducted.`,
     });
 
     return { success: true, data: inserted };
@@ -545,7 +545,7 @@ export async function deleteDailyExpenditure(requestedUserId: string, expenseId:
     await db.insert(actionLogs).values({
       userId,
       actionType: "DAILY_EXPENSE_DELETED",
-      description: `Dihapus pengeluaran harian "${exp?.title || "Pengeluaran Harian"}". Saldo dikembalikan.`,
+      description: `Deleted daily expense "${exp?.title || "Daily Expense"}". Balance refunded.`,
     });
 
     return { success: true };
@@ -583,7 +583,7 @@ export async function addWishlistItem(
     await db.insert(actionLogs).values({
       userId,
       actionType: "WISHLIST_CREATED",
-      description: `Dibuat target impian "${data.title}" (Rp ${data.targetPrice}).`,
+      description: `Created wishlist item "${data.title}" (Rp ${data.targetPrice}).`,
     });
 
     return { success: true, data: inserted };
@@ -608,7 +608,7 @@ export async function updateWishlistStatus(requestedUserId: string, itemId: stri
     await db.insert(actionLogs).values({
       userId,
       actionType: "WISHLIST_UPDATED",
-      description: `Diubah status target "${updated.title}" menjadi ${status}.`,
+      description: `Updated wishlist status of "${updated.title}" to ${status}.`,
     });
 
     return { success: true };
@@ -637,7 +637,7 @@ export async function deleteWishlistItem(requestedUserId: string, itemId: string
     await db.insert(actionLogs).values({
       userId,
       actionType: "WISHLIST_DELETED",
-      description: `Dihapus target impian "${wish?.title || "Target Impian"}".`,
+      description: `Deleted wishlist item "${wish?.title || "Wishlist Item"}".`,
     });
 
     return { success: true };

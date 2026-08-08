@@ -77,7 +77,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
             <span>Audit Trail & Activity Log</span>
           </CardTitle>
           <div className="text-xs text-muted-foreground">
-            Menampilkan <span className="font-bold text-foreground">{filteredLogs.length}</span> dari {logs.length} log
+            Showing <span className="font-bold text-foreground">{filteredLogs.length}</span> of {logs.length} logs
           </div>
         </div>
       </CardHeader>
@@ -89,11 +89,11 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground flex items-center space-x-1">
               <Search className="h-3 w-3" />
-              <span>Cari Deskripsi</span>
+              <span>Search Description</span>
             </label>
             <Input
               type="text"
-              placeholder="Cari log..."
+              placeholder="Filter by keyword..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-8 text-xs bg-background"
@@ -104,7 +104,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground flex items-center space-x-1">
               <Filter className="h-3 w-3" />
-              <span>Jenis Aksinya</span>
+              <span>Action Type</span>
             </label>
             <Select
               value={selectedActionType}
@@ -113,7 +113,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
             >
               {actionTypes.map((type) => (
                 <option key={type} value={type}>
-                  {type === "ALL" ? "Semua Aksi (All Types)" : type}
+                  {type === "ALL" ? "All Action Types" : type}
                 </option>
               ))}
             </Select>
@@ -123,7 +123,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground flex items-center space-x-1">
               <Calendar className="h-3 w-3" />
-              <span>Dari Tanggal</span>
+              <span>From Date</span>
             </label>
             <Input
               type="date"
@@ -137,7 +137,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground flex items-center space-x-1">
               <Calendar className="h-3 w-3" />
-              <span>Sampai Tanggal</span>
+              <span>To Date</span>
             </label>
             <div className="flex items-center space-x-2">
               <Input
@@ -151,7 +151,7 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
                   size="xs"
                   variant="ghost"
                   onClick={handleResetFilters}
-                  title="Reset Filter"
+                  title="Reset Filters"
                   className="h-8 px-2 text-muted-foreground hover:text-foreground"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -163,10 +163,10 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
 
         {/* Audit Log Items List */}
         {loading ? (
-          <p className="text-xs text-muted-foreground py-8 text-center">Memuat audit log...</p>
+          <p className="text-xs text-muted-foreground py-8 text-center">Loading audit logs...</p>
         ) : filteredLogs.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground rounded-lg border border-dashed border-border">
-            Tidak ada audit log yang sesuai dengan filter yang dipilih.
+            No audit logs found matching the selected filters.
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -193,9 +193,9 @@ export function AuditLogList({ logs, loading }: AuditLogListProps) {
                   <span className="text-foreground font-medium">{log.description}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground shrink-0 font-mono">
-                  {new Date(log.createdAt).toLocaleString("id-ID", {
-                    day: "2-digit",
+                  {new Date(log.createdAt).toLocaleString("en-US", {
                     month: "short",
+                    day: "2-digit",
                     year: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
